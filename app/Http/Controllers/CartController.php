@@ -181,24 +181,12 @@ class CartController extends Controller
 
         $userLoginDb = DB::connection()->getDatabaseName();
 
+        Config::get('database.connections.pgsql');
 
+        DB::purge('pgsql');
+        DB::reconnect('pgsql');
 
-        Config::set("database.connections.central", [
-            'driver' => 'pgsql',
-            'host' => env('DB_HOST', '127.0.0.1'),
-            'port' => env('DB_PORT', '5432'),
-            'database' => env('DB_DATABASE', 'central_database_multitenant_ecom'),
-            'username' => env('DB_USERNAME', 'postgres'),
-            'password' => env('DB_PASSWORD', 'password'),
-            'charset' => 'utf8',
-            'prefix' => '',
-            'schema' => 'public',
-            'sslmode' => 'prefer',
-        ]);
-        DB::purge('central');
-        DB::reconnect('central');
-
-        $tenant = DB::connection('central')->table('tenants')
+        $tenant = DB::connection('pgsql')->table('tenants')
                 ->where('id', $request->tenant_id)
                 ->first();
 
@@ -208,23 +196,12 @@ class CartController extends Controller
 
         $databaseName = $tenant->database; // Get tenant database name
 
+        Config::set('database.connections.pgsql_dynamic.database', $databaseName);
 
-        Config::set("database.connections.tenant", [
-            'driver' => 'pgsql',
-            'host' => env('DB_HOST', '127.0.0.1'),
-            'port' => env('DB_PORT', '5432'),
-            'database' => $databaseName,
-            'username' => env('DB_USERNAME', 'postgres'),
-            'password' => env('DB_PASSWORD', 'password'),
-            'charset' => 'utf8',
-            'prefix' => '',
-            'schema' => 'public',
-            'sslmode' => 'prefer',
-        ]);
-        DB::purge('tenant');
-        DB::reconnect('tenant');
+        DB::purge('pgsql_dynamic');
+        DB::reconnect('pgsql_dynamic');
 
-        $product = DB::connection('tenant')->table('products')
+        $product = DB::connection('pgsql_dynamic')->table('products')
                  ->where('id', $request->product_id)
                  ->first();
 
@@ -237,25 +214,14 @@ class CartController extends Controller
             return response()->json(['message' => 'Not enough stock available'], 400);
         }
 
+        Config::set('database.connections.pgsql_dynamic.database', $userLoginDb);
 
-        Config::set("database.connections.tenant", [
-            'driver' => 'pgsql',
-            'host' => env('DB_HOST', '127.0.0.1'),
-            'port' => env('DB_PORT', '5432'),
-            'database' => $userLoginDb,
-            'username' => env('DB_USERNAME', 'postgres'),
-            'password' => env('DB_PASSWORD', 'password'),
-            'charset' => 'utf8',
-            'prefix' => '',
-            'schema' => 'public',
-            'sslmode' => 'prefer',
-        ]);
-        DB::purge('tenant');
-        DB::reconnect('tenant');
+        DB::purge('pgsql_dynamic');
+        DB::reconnect('pgsql_dynamic');
 
 
         // Get the current cart item (if exists)
-        $existingCartItem = DB::connection('tenant')->table('carts')
+        $existingCartItem = DB::connection('pgsql_dynamic')->table('carts')
         ->where('user_id', Auth::id())
         ->where('product_id', $request->product_id)
         ->where('tenant_id', $request->tenant_id)
@@ -269,15 +235,14 @@ class CartController extends Controller
             return response()->json(['message' => 'Not enough stock available'], 400);
         }
 
-
         // Update or create the cart item
         if ($existingCartItem) {
-            DB::connection('tenant')->table('carts')
+            DB::connection('pgsql_dynamic')->table('carts')
                 ->where('id', $existingCartItem->id)
                 ->update(['quantity' => $newQuantity, 'updated_at' => now()]);
         } else {
 
-            DB::connection('tenant')->table('carts')->insert([
+            DB::connection('pgsql_dynamic')->table('carts')->insert([
                 'user_id' => Auth::id(),
                 'product_id' => $request->product_id,
                 'tenant_id' => $request->tenant_id,
@@ -325,22 +290,11 @@ class CartController extends Controller
 
         // **Step 2: Get the Database Name of the Requested Tenant from Central DB**
         try {
-            DB::purge('central');
-            Config::set("database.connections.central", [
-                'driver' => 'pgsql',
-                'host' => env('DB_HOST', '127.0.0.1'),
-                'port' => env('DB_PORT', '5432'),
-                'database' => env('DB_DATABASE', 'central_database_multitenant_ecom'),
-                'username' => env('DB_USERNAME', 'postgres'),
-                'password' => env('DB_PASSWORD', 'password'),
-                'charset' => 'utf8',
-                'prefix' => '',
-                'schema' => 'public',
-                'sslmode' => 'prefer',
-            ]);
-            DB::reconnect('central');
+            DB::purge('pgsql');
+            Config::get('database.connections.pgsql');
+            DB::reconnect('pgsql');
 
-            $tenantDatabase = DB::connection('central')->table('tenants')
+            $tenantDatabase = DB::connection('pgsql')->table('tenants')
                 ->where('id', $tenantIdRequest)
                 ->first();
 
@@ -353,22 +307,11 @@ class CartController extends Controller
 
         // **Step 3: Switch to Tenant Database and Check Product Stock**
         try {
-            DB::purge('tenant');
-            Config::set("database.connections.tenant", [
-                'driver' => 'pgsql',
-                'host' => env('DB_HOST', '127.0.0.1'),
-                'port' => env('DB_PORT', '5432'),
-                'database' => $tenantDatabase->database,
-                'username' => env('DB_USERNAME', 'postgres'),
-                'password' => env('DB_PASSWORD', 'password'),
-                'charset' => 'utf8',
-                'prefix' => '',
-                'schema' => 'public',
-                'sslmode' => 'prefer',
-            ]);
-            DB::reconnect('tenant');
+            DB::purge('pgsql_dynamic');
+            Config::set('database.connections.pgsql_dynamic.database', $tenantDatabase->database);
+            DB::reconnect('pgsql_dynamic');
 
-            $product = DB::connection('tenant')->table('products')
+            $product = DB::connection('pgsql_dynamic')->table('products')
                 ->where('id', $cartItem->product_id)
                 ->first();
 
@@ -402,7 +345,7 @@ class CartController extends Controller
 
             DB::connection('activeTenant')->table('carts')
                 ->where('id', $id)
-                ->update(['quantity' => $request->quantity]);
+                ->update(['quantity' => $request->quantity, 'updated_at' => now()]);
 
             return response()->json(['message' => 'Cart updated successfully']);
         } catch (\Exception $e) {

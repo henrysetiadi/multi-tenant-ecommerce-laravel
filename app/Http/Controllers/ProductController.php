@@ -161,26 +161,17 @@ class ProductController extends Controller
 
                 Log::info("Switching to database: " . $tenant->database);
                 // Switch to the tenant's database
-                Config::set("database.connections.tenant", [
-                    'driver' => 'pgsql',
-                    'host' => env('DB_HOST', '127.0.0.1'),
-                    'port' => env('DB_PORT', '5432'),
-                    'database' => $tenant->database,
-                    'username' => env('DB_USERNAME', 'postgres'),
-                    'password' => env('DB_PASSWORD', 'password'),
-                    'charset' => 'utf8',
-                    'prefix' => '',
-                    'schema' => 'public',
-                    'sslmode' => 'prefer',
-                ]);
-                DB::purge('tenant'); // Clear the old connection
-                DB::reconnect('tenant'); // Reconnect to ensure it applies
 
-                $currentDb = DB::connection('tenant')->getDatabaseName();
+                Config::set('database.connections.pgsql_dynamic.database', $tenant->database);
+
+                DB::purge('pgsql_dynamic'); // Clear the old connection
+                DB::reconnect('pgsql_dynamic'); // Reconnect to ensure it applies
+
+                $currentDb = DB::connection('pgsql_dynamic')->getDatabaseName();
                 Log::info("Connected to database: " . $currentDb);
 
                 // Fetch all products from the tenant's database
-                $products = DB::connection('tenant')->table('products')->get();
+                $products = DB::connection('pgsql_dynamic')->table('products')->get();
 
                 // Add tenant ID to products (optional, for identification)
                 foreach ($products as $product) {
@@ -223,27 +214,17 @@ class ProductController extends Controller
                     continue;
                 }
 
-                // Switch to the tenant's database
-                Config::set("database.connections.tenant", [
-                    'driver' => 'pgsql',
-                    'host' => env('DB_HOST', '127.0.0.1'),
-                    'port' => env('DB_PORT', '5432'),
-                    'database' => $tenant->database,
-                    'username' => env('DB_USERNAME', 'postgres'),
-                    'password' => env('DB_PASSWORD', 'password'),
-                    'charset' => 'utf8',
-                    'prefix' => '',
-                    'schema' => 'public',
-                    'sslmode' => 'prefer',
-                ]);
-                DB::purge('tenant'); // Clear the old connection
-                DB::reconnect('tenant'); // Reconnect to ensure it applies
 
-                $currentDb = DB::connection('tenant')->getDatabaseName();
+                // Switch to the tenant's database
+                Config::set('database.connections.pgsql_dynamic.database', $tenant->database);
+
+                DB::purge('pgsql_dynamic'); // Clear the old connection
+                DB::reconnect('pgsql_dynamic'); // Reconnect to ensure it applies
+
+                $currentDb = DB::connection('pgsql_dynamic')->getDatabaseName();
                 Log::info("Connected to database: " . $currentDb);
 
-
-                $products = DB::connection('tenant')
+                $products = DB::connection('pgsql_dynamic')
                     ->table('products')
                     ->get();
 
